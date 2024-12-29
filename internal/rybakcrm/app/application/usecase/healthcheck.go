@@ -1,19 +1,16 @@
 package usecase
 
-import (
-	"github.com/gin-gonic/gin"
-	"net/http"
-)
+import "crm-backend/internal/rybakcrm/app/application/dto"
 
-type HealthcheckUseCase struct {
+type Healthcheck struct {
 }
 
-func NewHealthCheckUseCase() *HealthcheckUseCase {
-	return &HealthcheckUseCase{}
+func NewHealthCheckUseCase() *Healthcheck {
+	return &Healthcheck{}
 }
 
-func (u *HealthcheckUseCase) Handle(ctx *gin.Context) {
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "ok",
-	})
+func (u *Healthcheck) Handle() *dto.HealthcheckResponseDto {
+	return &dto.HealthcheckResponseDto{
+		Result: "ok",
+	}
 }

@@ -1,6 +1,9 @@
 package repository
 
-import "github.com/dgrijalva/jwt-go"
+import (
+	"context"
+	"github.com/dgrijalva/jwt-go"
+)
 
 const SignKey = "asd-(#*$;adsl3tto-4551lf9458mbv"
 
@@ -11,8 +14,8 @@ type AccessTokenClaims struct {
 
 type AccessTokenRepository interface {
 	GenerateNewToken(userId int32) (*jwt.Token, string)
-	SaveToken(token *jwt.Token) (string, error)
-	RevokeToken(id string) error
 	ParseToken(token string) (*AccessTokenClaims, error)
-	IsTokenRevoked(id string) (bool, error)
+	SaveToken(ctx context.Context, token *jwt.Token) (string, error)
+	RevokeToken(ctx context.Context, id string) error
+	IsTokenRevoked(ctx context.Context, id string) (bool, error)
 }

@@ -9,8 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"crm-backend/internal/rybakcrm/app/domain/repository"
-	"crm-backend/internal/rybakcrm/app/infrastructure/lib"
 	"crm-backend/internal/rybakcrm/config"
+	jwtutils "crm-backend/pkg/jwt"
 )
 
 type AccessTokenRepository struct {
@@ -26,7 +26,7 @@ func NewAccessTokenRepository(cfg *config.Config, redis *redis.Client) *AccessTo
 }
 
 func (a *AccessTokenRepository) GenerateNewToken(userId int32) (*jwt.Token, string) {
-	accessTokenId, _ := lib.GenerateTokenId(20)
+	accessTokenId, _ := jwtutils.GenerateTokenId(20)
 
 	accessToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &repository.AccessTokenClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -39,7 +39,7 @@ func (a *AccessTokenRepository) GenerateNewToken(userId int32) (*jwt.Token, stri
 	return accessToken, accessTokenId
 }
 
-func (a *AccessTokenRepository) SaveToken(token *jwt.Token) (string, error) {
+func (a *AccessTokenRepository) SaveToken(ctx context.Context, token *jwt.Token) (string, error) {
 	claims, _ := token.Claims.(*repository.AccessTokenClaims)
 	signedToken, err := token.SignedString([]byte(a.cfg.JWT.SignKey))
 	if err != nil {
@@ -47,15 +47,15 @@ func (a *AccessTokenRepository) SaveToken(token *jwt.Token) (string, error) {
 		return "", err
 	}
 
-	a.redis.Set(context.Background(), claims.Id, signedToken, a.cfg.JWT.AccessTokenTTL)
+	a.redis.Set(ctx, claims.Id, signedToken, a.cfg.JWT.AccessTokenTTL)
 
 	return signedToken, nil
 }
 
-func (a *AccessTokenRepository) RevokeToken(id string) error {
-	result := a.redis.Exists(context.Background(), id)
+func (a *AccessTokenRepository) RevokeToken(ctx context.Context, id string) error {
+	result := a.redis.Exists(ctx, id)
 	if result.Val() > 0 {
-		result = a.redis.Del(context.Background(), id)
+		result = a.redis.Del(ctx, id)
 	}
 
 	return result.Err()
@@ -81,7 +81,7 @@ func (a *AccessTokenRepository) ParseToken(token string) (*repository.AccessToke
 	return claims, nil
 }
 
-func (a *AccessTokenRepository) IsTokenRevoked(id string) (bool, error) {
-	result := a.redis.Exists(context.Background(), id)
+func (a *AccessTokenRepository) IsTokenRevoked(ctx context.Context, id string) (bool, error) {
+	result := a.redis.Exists(ctx, id)
 	return result.Val() == 0, result.Err()
 }

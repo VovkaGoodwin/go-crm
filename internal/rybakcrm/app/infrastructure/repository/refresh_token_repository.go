@@ -2,13 +2,15 @@ package repository
 
 import (
 	"context"
-	"crm-backend/internal/rybakcrm/app/domain/repository"
-	"crm-backend/internal/rybakcrm/app/infrastructure/lib"
-	"crm-backend/internal/rybakcrm/config"
 	"errors"
+	"time"
+
 	"github.com/dgrijalva/jwt-go"
 	"github.com/redis/go-redis/v9"
-	"time"
+
+	"crm-backend/internal/rybakcrm/app/domain/repository"
+	"crm-backend/internal/rybakcrm/config"
+	jwtutils "crm-backend/pkg/jwt"
 )
 
 type RefreshTokenRepository struct {
@@ -24,7 +26,7 @@ func NewRefreshTokenRepository(cfg *config.Config, redis *redis.Client) *Refresh
 }
 
 func (r *RefreshTokenRepository) GenerateNewToken(accessTokenId string, userId int32) (*jwt.Token, string) {
-	refreshTokenId, _ := lib.GenerateTokenId(20)
+	refreshTokenId, _ := jwtutils.GenerateTokenId(20)
 
 	refreshToken := jwt.NewWithClaims(jwt.SigningMethodHS256, &repository.RefreshTokenClaims{
 		StandardClaims: jwt.StandardClaims{
@@ -38,7 +40,7 @@ func (r *RefreshTokenRepository) GenerateNewToken(accessTokenId string, userId i
 	return refreshToken, refreshTokenId
 }
 
-func (r *RefreshTokenRepository) SaveToken(token *jwt.Token) (string, error) {
+func (r *RefreshTokenRepository) SaveToken(ctx context.Context, token *jwt.Token) (string, error) {
 	claims, _ := token.Claims.(*repository.RefreshTokenClaims)
 	signedToken, err := token.SignedString([]byte(r.cfg.JWT.SignKey))
 	if err != nil {
@@ -46,7 +48,7 @@ func (r *RefreshTokenRepository) SaveToken(token *jwt.Token) (string, error) {
 		return "", err
 	}
 
-	r.redis.Set(context.Background(), claims.Id, signedToken, r.cfg.JWT.RefreshTokenTTL)
+	r.redis.Set(ctx, claims.Id, signedToken, r.cfg.JWT.RefreshTokenTTL)
 
 	return signedToken, nil
 }
@@ -71,15 +73,15 @@ func (r *RefreshTokenRepository) ParseToken(token string) (*repository.RefreshTo
 	return claims, nil
 }
 
-func (r *RefreshTokenRepository) IsTokenRevoked(id string) (bool, error) {
-	result := r.redis.Exists(context.Background(), id)
+func (r *RefreshTokenRepository) IsTokenRevoked(ctx context.Context, id string) (bool, error) {
+	result := r.redis.Exists(ctx, id)
 	return result.Val() == 0, result.Err()
 }
 
-func (r *RefreshTokenRepository) RevokeToken(id string) error {
-	result := r.redis.Exists(context.Background(), id)
+func (r *RefreshTokenRepository) RevokeToken(ctx context.Context, id string) error {
+	result := r.redis.Exists(ctx, id)
 	if result.Val() > 0 {
-		result = r.redis.Del(context.Background(), id)
+		result = r.redis.Del(ctx, id)
 	}
 
 	return result.Err()

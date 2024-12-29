@@ -1,18 +1,18 @@
 package app
 
 import (
-	"context"
-	"crm-backend/internal/rybakcrm/app/infrastructure/database"
-	"github.com/jmoiron/sqlx"
-	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"net/http"
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jmoiron/sqlx"
+	"github.com/redis/go-redis/v9"
 
 	"crm-backend/internal/rybakcrm/app/application/interactors"
 	"crm-backend/internal/rybakcrm/app/application/usecase"
+	"crm-backend/internal/rybakcrm/app/infrastructure/database"
+	"crm-backend/internal/rybakcrm/app/presentation/http_handler"
 	"crm-backend/internal/rybakcrm/config"
 )
 
@@ -61,7 +61,10 @@ func initHttpServer(cfg *config.Config, handler http.Handler) *http.Server {
 }
 
 func initPostgres(cfg *config.Config) *sqlx.DB {
-	db, _ := database.NewPostgresDb(cfg)
+	db, err := database.NewPostgresDb(cfg)
+	if err != nil {
+		panic("database initializing" + err.Error())
+	}
 
 	return db
 }
@@ -70,28 +73,17 @@ func initRedis(cfg *config.Config) *redis.Client {
 	return database.NewRedisDb(cfg)
 }
 
-func initRouter(
-	ctx context.Context,
+func initHandler(
 	cfg *config.Config,
-	log *slog.Logger,
+	logger *slog.Logger,
 ) *gin.Engine {
-	router := gin.New()
+	handler := http_handler.NewHandler(
+		cfg,
+		logger,
+		usecase.NewHealthCheckUseCase(),
+		interactors.NewAuthInteractor(cfg, logger, AuthService()),
+		interactors.NewDepartmentInteractor(cfg, logger, DepartmentService()),
+	)
 
-	router.Use(func(ctx *gin.Context) {
-		log.Info("request received", slog.String("url", ctx.Request.URL.String()))
-	}, func(c *gin.Context) {
-		c.Set("ctx", ctx)
-	})
-
-	api := router.Group("/api")
-	{
-		api.GET("/healthcheck", usecase.NewHealthCheckUseCase().Handle)
-
-		authGroup := api.Group("/auth")
-		{
-			authGroup.POST("/login", interactors.NewAuthInteractor(cfg, log, AuthService()).LogIn)
-		}
-	}
-
-	return router
+	return handler.InitRoutes(AuthService())
 }

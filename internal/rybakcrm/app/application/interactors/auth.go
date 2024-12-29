@@ -1,15 +1,12 @@
 package interactors
 
 import (
-	"log/slog"
-	"net/http"
-	"time"
-
-	"github.com/gin-gonic/gin"
-
-	"crm-backend/internal/rybakcrm/app/application/http_response"
+	"context"
+	"crm-backend/internal/rybakcrm/app/application/dto"
 	"crm-backend/internal/rybakcrm/app/domain/service"
 	"crm-backend/internal/rybakcrm/config"
+	"log/slog"
+	"net/http"
 )
 
 const TokenType = "Bearer"
@@ -32,60 +29,37 @@ func NewAuthInteractor(
 	}
 }
 
-type loginInput struct {
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
+func (a *AuthInteractor) LogIn(ctx context.Context, request *dto.LoginRequestDto) (*dto.LoginResponseDto, error) {
+
+	accessToken, refreshToken, user, err := a.authService.Login(ctx, request.Username, request.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	return &dto.LoginResponseDto{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		User:         user,
+		TokenType:    TokenType,
+	}, nil
 }
 
-func (a *AuthInteractor) LogIn(ctx *gin.Context) {
-	var input loginInput
-
-	if err := ctx.BindJSON(&input); err != nil {
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, http_response.Error{
-			http.StatusBadRequest,
-			"invalid data",
-		})
-		a.log.Error("Input binding error", slog.String("error", err.Error()))
-		return
-	}
-
-	accessToken, refreshToken, user, err := a.authService.Login(input.Username, input.Password)
+func (a *AuthInteractor) RefreshToken(ctx context.Context, request *dto.RefreshTokenRequestDto) (*dto.RefreshTokenResponseDto, error) {
+	accessToken, refreshToken, err := a.authService.RefreshToken(ctx, request.RefreshToken)
 	if err != nil {
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, map[string]interface{}{
-			"message": "Wrong user credentials",
-		})
-		a.log.Error("LogIn error", slog.String("error", err.Error()))
-		return
+		return nil, err
 	}
 
-	http.SetCookie(ctx.Writer, a.getRefreshTokenCookie(refreshToken, int(a.cfg.JWT.RefreshTokenTTL/time.Second)))
+	response := &dto.RefreshTokenResponseDto{
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"access_token": accessToken,
-		"token_type":   TokenType,
-		"user":         user,
-	})
+	return response, nil
 }
 
-func (a *AuthInteractor) RefreshToken(ctx *gin.Context) {
-	token, err := ctx.Cookie("RefreshToken")
-	if err != nil {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		a.log.Error("Refresh token nod found")
-		return
-	}
+func (a *AuthInteractor) Logout(ctx context.Context, token string) {
 
-	newAccessToken, newRefreshToken, err := a.authService.RefreshToken(token)
-	if err != nil {
-		//h.abortWithMessage(c, http.StatusInternalServerError, fmt.Sprintf("token refreshing error: %s", err.Error()))
-		return
-	}
-
-	http.SetCookie(ctx.Writer, a.getRefreshTokenCookie(newRefreshToken, int(a.cfg.JWT.RefreshTokenTTL/time.Second)))
-
-	ctx.JSON(http.StatusOK, map[string]interface{}{
-		"access_token": newAccessToken,
-	})
 }
 
 func (a *AuthInteractor) getRefreshTokenCookie(token string, maxAge int) *http.Cookie {

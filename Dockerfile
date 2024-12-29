@@ -1,4 +1,4 @@
-FROM golang:1.23-bookworm as go
+FROM golang:1.23-bookworm AS go
 
 ARG UID=22
 ARG GID=501

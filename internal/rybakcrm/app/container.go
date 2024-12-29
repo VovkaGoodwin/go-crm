@@ -14,12 +14,14 @@ var (
 	userRepository         repository.UserRepository
 	accessTokenRepository  repository.AccessTokenRepository
 	refreshTokenRepository repository.RefreshTokenRepository
+	departmentRepository   repository.DepartmentRepository
 )
 
 func initContainer(cfg *config.Config, postgresDb *sqlx.DB, redis *redis.Client) {
 	userRepository = infra_repo.NewUserRepository(postgresDb)
 	accessTokenRepository = infra_repo.NewAccessTokenRepository(cfg, redis)
 	refreshTokenRepository = infra_repo.NewRefreshTokenRepository(cfg, redis)
+	departmentRepository = infra_repo.NewDepartmentRepositoryRepository(postgresDb)
 }
 
 func AuthService() *service.AuthService {
@@ -28,4 +30,8 @@ func AuthService() *service.AuthService {
 		accessTokenRepository,
 		refreshTokenRepository,
 	)
+}
+
+func DepartmentService() *service.DepartmentService {
+	return service.NewDepartmentService(departmentRepository)
 }

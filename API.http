@@ -1,0 +1,32 @@
+GET {{url}}/healthcheck
+
+> {% client.assert(response.status === 200) %}
+###
+
+POST {{url}}/department
+Content-Type: application/json
+
+{
+  "name": "1 отдел dddd",
+  "description": "description"
+}
+
+###
+GET {{url}}//departments
+
+###
+GET {{url}}//departments/5
+
+###
+
+PUT {{url}}/departments/1
+Content-Type: application/json
+
+{
+  "name": "1 отдел dddd4",
+  "description": "sssssss"
+}
+
+###
+
+DELETE {{url}}/departments/1

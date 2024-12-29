@@ -24,8 +24,8 @@ func New(ctx context.Context, cfg *config.Config) *App {
 
 	initContainer(cfg, postgres, redis)
 
-	router := initRouter(ctx, cfg, log)
-	server := initHttpServer(cfg, router)
+	handler := initHandler(cfg, log)
+	server := initHttpServer(cfg, handler)
 
 	return &App{
 		log,
@@ -36,6 +36,12 @@ func New(ctx context.Context, cfg *config.Config) *App {
 func (a *App) Start(ctx context.Context) {
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+
+	defer func() {
+		if r := recover(); r != nil {
+			a.log.Info("panic recover", slog.Any("panic", r))
+		}
+	}()
 
 	go func() {
 		if err := a.server.ListenAndServe(); err != nil {
